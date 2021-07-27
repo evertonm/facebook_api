@@ -56,6 +56,7 @@ function writeFile(client) {
 
     console.log(date)
     console.log(today)
+    console.log("TESTE ERBITO")
 
     if(date < today) {
       getInfoAPI(date);
