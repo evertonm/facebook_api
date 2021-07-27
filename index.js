@@ -120,5 +120,143 @@ function getInfoAPI(date) {
       console.log(obj._data)
     });
   });
+
+  const estados = [
+    {
+        "id": 1,
+        "unidadeFederal": "Rio Grande do Sul",
+        "sgUf": "RS"
+    },
+    {
+        "id":2,
+        "unidadeFederal":"Santa Catarina",
+        "sgUf": "SC"
+    },
+    {
+        "id":3,
+        "unidadeFederal":"Amapá",
+        "sgUf": "AP"
+    },
+    {
+        "id":4,
+        "unidadeFederal":"Espírito Santo",
+        "sgUf": "ES"
+    },
+    {
+        "id":5,
+        "unidadeFederal":"Mato Grosso",
+        "sgUf": "MT"
+    },
+    {
+        "id":6,
+        "unidadeFederal":"Piauí",
+        "sgUf": "PI"
+    },
+    {
+        "id":7,
+        "unidadeFederal":"Sergipe",
+        "sgUf": "SE"
+    },
+    {
+        "id":8,
+        "unidadeFederal":"Paraná",
+        "sgUf": "PR"
+    },
+    {
+        "id":9,
+        "unidadeFederal":"Brasília",
+        "sgUf": "DF"
+    },
+    {
+        "id":10,
+        "unidadeFederal":"Amazonas",
+        "sgUf": "AM"
+    },
+    {
+        "id":11,
+        "unidadeFederal":"Ceará",
+        "sgUf": "CE"
+    },
+    {
+        "id":12,
+        "unidadeFederal":"Mato Grosso do Sul",
+        "sgUf": "MS"
+    },
+    {
+        "id":13,
+        "unidadeFederal":"Pernambuco",
+        "sgUf": "PE"
+    },
+    {
+        "id":14,
+        "unidadeFederal":"Roraima",
+        "sgUf": "RR"
+    },
+    {
+        "id":15,
+        "unidadeFederal":"São Paulo",
+        "sgUf": "SP"
+    },
+    {
+        "id":16,
+        "unidadeFederal":"Minas Gerais",
+        "sgUf": "MG"
+    },
+    {
+        "id":17,
+        "unidadeFederal":"Alagoas",
+        "sgUf": "AL"
+    },
+    {
+        "id":18,
+        "unidadeFederal":"Bahia",
+        "sgUf": "BA"
+    },
+    {
+        "id":19,
+        "unidadeFederal":"Maranhão",
+        "sgUf": "MA"
+    },
+    {
+        "id":20,
+        "unidadeFederal":"Paraíba",
+        "sgUf": "PB"
+    },
+    {
+        "id":21,
+        "unidadeFederal":"Rondônia",
+        "sgUf": "RO"
+    },
+    {
+        "id":22,
+        "unidadeFederal":"Rio de Janeiro",
+        "sgUf": "RJ"
+    },
+    {
+        "id":23,
+        "unidadeFederal":"Acre",
+        "sgUf": "AC"
+    },
+    {
+        "id":24,
+        "unidadeFederal":"Goiás",
+        "sgUf": "GO"
+    },
+    {
+        "id":25,
+        "unidadeFederal":"Pará",
+        "sgUf": "PA"
+    },
+    {
+        "id":26,
+        "unidadeFederal":"Rio Grande do Norte",
+        "sgUf": "RN"
+    },
+    {
+        "id":27,
+        "unidadeFederal":"Tocantins",
+        "sgUf": "TO"
+    }
+  ];
   
 }
