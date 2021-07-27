@@ -1,10 +1,11 @@
 const bizSdk = require('facebook-nodejs-business-sdk');
 const AdAccount = bizSdk.AdAccount;
 const moment = require('moment');
+const fs = require('fs');
 //Criar logica para obter token de longa duração a cada 30 dias
 /*
 URL:
-  https://graph.facebook.com/v11.0/oauth/access_token?grant_type=fb_exchange_token&client_id=154090190123813&client_secret=b3bff8a6de920ab13982ad66382958ff&fb_exchange_token=EAACMJOsLsyUBAPU4R9h6ljRfFSgxrsVl5ZAv7HRYgTgZAjx2kKI2ZCPW3Sii7UEdovNaj2cQT9sIJ0dpWwz6Pz5IY14JVrbZC2x9mGaD2OPtcwsqZA5vDtd0HUZCZCg6iroqkfpP90CX8DdLUxZA7tZAjXY2URz8mZA3I1ZAGDrS1ActwZDZD
+  https://graph.facebook.com/v11.0/oauth/access_token?grant_type=fb_exchange_token&client_id=154090190123813&client_secret=b3bff8a6de920ab13982ad66382958ff&fb_exchange_token=EAACMJOsLsyUBAGUBO1wsaEqh1ZCqOeiZCZBugB9WH3yBcITMGpEOWfwfQXgLZBj3jqL11EOM7pBCCCayuh1a7tqDpoZA1rRhJHmfZApAXHgFjyZCJ49wCZCqO07JDP3VHbeO87Tjpc1rVYwiXNl30ek7A6Xq5I6VtDIe3GDayIft7Jn78zcLWq3WRF2fnfZBhy2TGSvjs4N7MQsp3XtivoreEUEVkgWaEBSbMp04Dyzea1q276V97boEZB
 */
 
 //Criar automação para armazenar dia após dia desde 2021-07-01
@@ -12,7 +13,7 @@ URL:
 //Definir estados e ids ([id, description])
 
 //variar token
-let access_token = 'EAACMJOsLsyUBAPU4R9h6ljRfFSgxrsVl5ZAv7HRYgTgZAjx2kKI2ZCPW3Sii7UEdovNaj2cQT9sIJ0dpWwz6Pz5IY14JVrbZC2x9mGaD2OPtcwsqZA5vDtd0HUZCZCg6iroqkfpP90CX8DdLUxZA7tZAjXY2URz8mZA3I1ZAGDrS1ActwZDZD';
+let access_token = 'EAACMJOsLsyUBAIVJab56kjzn7oHVtTXhPYOZApajHpFzkKoquAfkgKxxUlF2TZCmXSVkq5HPqUR65sX7c8wvPKVVATHi57MgHXZBfRZAZBHe2HC5awZB1w6ZA4mRXbwpKU3i1eV587mOBcL3ZAFCePTvXHU1ZB82cYDwZBEKaFMXX71QZDZD';
 let ad_account_id = 'act_1975449945940491';
 const api = bizSdk.FacebookAdsApi.init(access_token);
 const showDebugingInfo = true; //Setting this to true shows more debugging info.
@@ -44,13 +45,13 @@ const fields = [
 
 const params = {
   'breakdowns': 'region',
-  'time_range' : {'since':'2021-07-01','until':'2021-07-30'},
+  'time_range': { 'since': '2021-07-01', 'until': '2021-07-30' },
 };
 
 new AdAccount(ad_account_id).getInsights(
   fields,
   params
-).then((response ) => {
+).then((response) => {
   response.forEach((obj) => {
     console.log(obj._data)
   });
@@ -60,7 +61,53 @@ new AdAccount(ad_account_id).getInsights(
 const date = moment().format();
 console.log(date);
 
+writeFile('nomura');
+
+function writeFile(client) {
+
+  const path = `${client}.json`;
+  let dateStart = '2021-07-01';
+  let dataToInsert;
+  fs.access(path, fs.F_OK, (err) => {
+    if (err) { //Arquivo não existe
+      console.log('não existe');
+
+      //Criar lógica para pegar da data: 2021-07-01 até hoje
+
+      dataToInsert = [];
+
+      dataToInsert.push({
+        id: dataToInsert.length + 1,
+        date_start: '2021-07-03'
+      })
 
 
+    } else {
+      const fileData = JSON.parse(fs.readFileSync(path));
 
+      if (fileData[fileData.length - 1].date_start) {
+        dateStart = fileData[fileData.length - 1].date_start;
+      }
+      dataToInsert = fileData;   
+      
+      dataToInsert.push({
+        id: dataToInsert.length + 1,
+        date_start: '2021-07-04'
+      })
+    
+      //Criar lógica para pegar da última data inserida até hoje
+
+    }
+
+
+    //inserir dado no json
+    if(dataToInsert) {
+      fs.writeFile(path, JSON.stringify(dataToInsert), function (err) {
+        if (err) throw err;
+        console.log('Thanks, It\'s saved to the file!');
+      });
+    }
+
+  })
+}
 
