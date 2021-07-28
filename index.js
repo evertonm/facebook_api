@@ -1,8 +1,8 @@
 const bizSdk = require('facebook-nodejs-business-sdk');
-const AdAccount = bizSdk.AdAccount;
 const moment = require('moment');
 const fs = require('fs');
 const {addMonths, differenceInCalendarDays, format} = require('date-fns');
+const axios = require('axios');
 //Criar logica para obter token de longa duração a cada 30 dias
 /*
 URL:
@@ -15,9 +15,6 @@ URL:
 
 //variar token
 
-if (showDebugingInfo) {
-  api.setDebug(true);
-}
 /* Lê o arquivo e separa as variaveis de data e access token */
 fs.readFile('./access_token.json', function(err, data) {
   if(err) throw err;
@@ -53,10 +50,11 @@ console.log(date);
 
 writeFile('nomura');
 
+
 function writeFile(client) {
 
   const path = `${client}.json`;
-  let dateStart = '2021-07-20';
+  let dateStart = '2021-06-30';
   let dataToInsert;
   fs.access(path, fs.F_OK, (err) => {
     if (err) { //Arquivo não existe
@@ -65,227 +63,74 @@ function writeFile(client) {
     } else {
       const fileData = JSON.parse(fs.readFileSync(path));
 
-      if (fileData[fileData.length - 1].date_start) {
+      if (fileData[fileData.length - 1] && fileData[fileData.length - 1].date_start) {
         dateStart = fileData[fileData.length - 1].date_start;
       }
       dataToInsert = fileData;
     }
 
     const date = new Date(dateStart);
-    date.setDate(date.getDate() + 1); //próximo a ser criado
-    date.setHours(0);
+    date.setDate(date.getDate() + 2);
+    date.setHours(0, 0, 0, 0);
     date.setMinutes(0);
-    date.setSeconds(0);    
+    date.setSeconds(0);
 
     const today = new Date();
-    today.setDate(today.getDate() + 1); //hoje
-    today.setHours(0);
+    today.setHours(0, 0, 0, 0);
     today.setMinutes(0);
-    today.setSeconds(0);    
+    today.setSeconds(0);
 
-    console.log(date)
-    console.log(today)
-    console.log("TESTE ERBITO")
-
-    if(date < today) {
-      getInfoAPI(date);
+    if (date < today) {
+      getInfoAPI(path, date, today, dataToInsert, client);
+    } else {
+      console.log('Isso é tudo por hoje (:')
     }
-
-
-    //inserir dado no json
-    /* if(dataToInsert) {
-      fs.writeFile(path, JSON.stringify(dataToInsert), function (err) {
-        if (err) throw err;
-       
-      });
-    } */
-
   })
 }
 
-function getInfoAPI(date) {
-  let access_token = 'EAACMJOsLsyUBAG7SDYrrFOpTb6TubvqXZAOMMQMpF6c4j5kxs36WMygG6LCsJMdyG9RCQaUPh6AePg4U9vf2BsZCysQdunlnD3GCWMj02NYZAqRFZBPQ6mlT9qagpta4R7ZCOQf8sqGFZBVOLqoql5l3lWaqtsHUxPazzxHnBSUAZDZD';
-  let ad_account_id = 'act_1975449945940491';
-  const api = bizSdk.FacebookAdsApi.init(access_token);
-  const showDebugingInfo = true; //Setting this to true shows more debugging info.
-  if (showDebugingInfo) {
-    api.setDebug(true);
-  }
-  
-  const fields = [
-    'campaign_id',
-    'account_id',
-    'account_name',
-    'account_currency',
-    'inline_link_clicks',
-    'impressions',
-    'clicks',
-    'spend',
-    'cpm',
-    'frequency',
-    'cpp',
-    'ctr',
-    'reach',
-    'cost_per_conversion',
-    'actions',
-    'action_values',
-    'location'
-  ];
-  const monthFormatted = date.getMonth() + 1 < 10 ? `0${date.getMonth() + 1}` : date.getMonth() + 1;
-  const dayFormatted = date.getDate() < 10 ? `0${date.getDate() + 1}` : date.getDate();
-  const params = {
-    'breakdowns': 'region',
-    'time_range': { 'since': `${date.getFullYear()}-${monthFormatted}-${dayFormatted}`, 'until': `${date.getFullYear()}-${monthFormatted}-${dayFormatted}` },
-  };
+async function getInfoAPI(path, date, today, insertData, client) {
+  //Variar por cliente/tempo
+  let access_token = 'EAACMJOsLsyUBAFZCsWZBuFCEaV1jaulsNcCNT4Es5ts1mYqtLz25V7B1dHgQJnh8rlYeeDyDS4jxeQst42z6fJTkEMZATzUpD2J1e9YLndSDz4GU69g9TYNSw7Ix5RUwzfgkecDQSUOqejnE9PqGcgyoxijgQ3M92QTACrULQZDZD';
+  let ad_account_id = 'act_1975449945940491';//Variar por cliente
+  const fields =
+    `campaign_id,account_id,account_name,account_currency,inline_link_clicks,impressions,clicks,spend,cpm,
+  frequency,cpp,ctr,reach,cost_per_conversion,actions,action_values,location`;
 
-  console.log(params)
-  
-  
-  new AdAccount(ad_account_id).getInsights(
-    fields,
-    params
-  ).then((response) => {
-    response.forEach((obj) => {
-      console.log(obj._data)
+  const monthFormatted = date.getMonth() + 1 < 9 ? `0${date.getMonth() + 1}` : date.getMonth() + 1;
+  const dayFormatted = date.getDate() < 10 ? `0${date.getDate()}` : date.getDate();
+  console.log('Gerando da data:')
+  console.log(`${date.getFullYear()}-${monthFormatted}-${dayFormatted}`)
+  const breakdowns = 'region';
+  const time_range = JSON.stringify
+    ({
+      'since': `${date.getFullYear()}-${monthFormatted}-${dayFormatted}`,
+      'until': `${date.getFullYear()}-${monthFormatted}-${dayFormatted}`
     });
-  });
+  try {
+    const res = await axios.get(
+      `https://graph.facebook.com/v11.0/${ad_account_id}/insights?
+      fields=${fields}
+      &breakdowns=${breakdowns}
+      &time_range=${time_range}
+      &access_token=${access_token}`
+    );
 
-  const estados = [
-    {
-        "id": 1,
-        "unidadeFederal": "Rio Grande do Sul",
-        "sgUf": "RS"
-    },
-    {
-        "id":2,
-        "unidadeFederal":"Santa Catarina",
-        "sgUf": "SC"
-    },
-    {
-        "id":3,
-        "unidadeFederal":"Amapá",
-        "sgUf": "AP"
-    },
-    {
-        "id":4,
-        "unidadeFederal":"Espírito Santo",
-        "sgUf": "ES"
-    },
-    {
-        "id":5,
-        "unidadeFederal":"Mato Grosso",
-        "sgUf": "MT"
-    },
-    {
-        "id":6,
-        "unidadeFederal":"Piauí",
-        "sgUf": "PI"
-    },
-    {
-        "id":7,
-        "unidadeFederal":"Sergipe",
-        "sgUf": "SE"
-    },
-    {
-        "id":8,
-        "unidadeFederal":"Paraná",
-        "sgUf": "PR"
-    },
-    {
-        "id":9,
-        "unidadeFederal":"Brasília",
-        "sgUf": "DF"
-    },
-    {
-        "id":10,
-        "unidadeFederal":"Amazonas",
-        "sgUf": "AM"
-    },
-    {
-        "id":11,
-        "unidadeFederal":"Ceará",
-        "sgUf": "CE"
-    },
-    {
-        "id":12,
-        "unidadeFederal":"Mato Grosso do Sul",
-        "sgUf": "MS"
-    },
-    {
-        "id":13,
-        "unidadeFederal":"Pernambuco",
-        "sgUf": "PE"
-    },
-    {
-        "id":14,
-        "unidadeFederal":"Roraima",
-        "sgUf": "RR"
-    },
-    {
-        "id":15,
-        "unidadeFederal":"São Paulo",
-        "sgUf": "SP"
-    },
-    {
-        "id":16,
-        "unidadeFederal":"Minas Gerais",
-        "sgUf": "MG"
-    },
-    {
-        "id":17,
-        "unidadeFederal":"Alagoas",
-        "sgUf": "AL"
-    },
-    {
-        "id":18,
-        "unidadeFederal":"Bahia",
-        "sgUf": "BA"
-    },
-    {
-        "id":19,
-        "unidadeFederal":"Maranhão",
-        "sgUf": "MA"
-    },
-    {
-        "id":20,
-        "unidadeFederal":"Paraíba",
-        "sgUf": "PB"
-    },
-    {
-        "id":21,
-        "unidadeFederal":"Rondônia",
-        "sgUf": "RO"
-    },
-    {
-        "id":22,
-        "unidadeFederal":"Rio de Janeiro",
-        "sgUf": "RJ"
-    },
-    {
-        "id":23,
-        "unidadeFederal":"Acre",
-        "sgUf": "AC"
-    },
-    {
-        "id":24,
-        "unidadeFederal":"Goiás",
-        "sgUf": "GO"
-    },
-    {
-        "id":25,
-        "unidadeFederal":"Pará",
-        "sgUf": "PA"
-    },
-    {
-        "id":26,
-        "unidadeFederal":"Rio Grande do Norte",
-        "sgUf": "RN"
-    },
-    {
-        "id":27,
-        "unidadeFederal":"Tocantins",
-        "sgUf": "TO"
-    }
-  ];
-  
+    insertData = insertData.concat(res.data.data);
+
+    fs.writeFile(path, JSON.stringify(insertData), function (err) {
+      if (err) throw err;
+      if (date < today) {
+        date.setDate(date.getDate() + 1);
+        getInfoAPI(path, date, today, insertData, client);
+      }
+    });
+
+    console.log(insertData.length);
+  } catch (err) {
+    console.log(err);
+  }
+
+
+
+
 }
