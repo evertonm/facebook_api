@@ -24,42 +24,42 @@ function retornaDataAtualizada(data_arquivo) {
   return data;
 }
 
-async function retornaNovoTokenAPI(access_token) {
-  const url = `https://graph.facebook.com/v11.0/oauth/access_token?grant_type=fb_exchange_token&client_id=154090190123813&client_secret=b3bff8a6de920ab13982ad66382958ff&fb_exchange_token=${access_token}`;
+async function retornaNovoTokenAPI(token, client_id, client_secret) {
+  const url = `https://graph.facebook.com/v11.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${client_id}&client_secret=${client_secret}&fb_exchange_token=${token}`;
 
-  const response = await axios.get('https://viacep.com.br/ws/01001000/json/unicode/');
+  const response = await axios.get(url);
+  const {access_token} = response.data
 
-  return response.data;
+  return access_token;
 }
 
-async function retornaTokenArquivo() {
-  const dados_arquivo = fs.readFileSync('./access_token.json', 'utf8',function(err, data) {
+async function retornaTokenArquivo(client) {
+  const dados_arquivo = fs.readFileSync(`./${client}_token.json`, 'utf8',function(err, data) {
     if(err) throw err;
     return data;
   
   });
 
-  const {data_geracao, access_token} = JSON.parse(dados_arquivo);
-  
-  const data_arquivo = retornaDataAtualizada(data_geracao); 
+  const {act_id, id_pagina, client_id, client_secret, data_geracao, access_token} = JSON.parse(dados_arquivo);
+  const data_arquivo_atualizada = retornaDataAtualizada(data_geracao); 
   const dia_atual = new Date();
-  var token = null;
+  let token = null;
 
-  if (data_arquivo.valueOf() <= dia_atual.valueOf()) {//tem q inverter o sinal
-    const url = 'https://graph.facebook.com/v11.0/oauth/access_token?grant_type=fb_exchange_token&client_id=154090190123813&client_secret=b3bff8a6de920ab13982ad66382958ff&fb_exchange_token=EAACMJOsLsyUBAEcgZCZBTY2TXT4vlbYJUPawV4cI2MPe7suAZCemc1LlF2uddLTGdLiEwClUA8I0xSZCI0Qg42ZAbvx7QPjQZCUssRZAJZBZBRDi8lmXm2VrnmuUGqAj1ZCLfkwCToVUv38EXVLikOWZCrweZB0tVLzv9iW3JCR8RygVIV3G2xK7B3xkUhzQOxud47eTTCMerNh3wAZDZD';
-   
-    var novoToken = await retornaNovoTokenAPI();
-    console.log(novoToken);
-
-    token = novoToken;
-
+  if (data_arquivo_atualizada.valueOf() <= dia_atual.valueOf()) {
+    
+    token = await retornaNovoTokenAPI(access_token, client_id, client_secret);
     const dia_atual_formatado = format(dia_atual, 'yyyy-MM-dd')
     const novo_arquivo = {
+      client: client,
+      act_id: act_id,
+      id_pagina: id_pagina,
+      client_id,
+      client_secret: client_secret,
       data_geracao: dia_atual_formatado,
-      access_token: 'EAACMJOsLsyUBAIVJab56kjzn7oHVtTXhPYOZApajHpFzkKoquAfkgKxxUlF2TZCmXSVkq5HPqUR65sX7c8wvPKVVATHi57MgHXZBfRZAZBHe2HC5awZB1w6ZA4mRXbwpKU3i1eV587mOBcL3ZAFCePTvXHU1ZB82cYDwZBEKaFMXX71QZDZD'
+      access_token: token
     }
     
-    fs.writeFile('./access_token.json', JSON.stringify(novo_arquivo), function (err) {
+    fs.writeFile(`./${client}_token.json`, JSON.stringify(novo_arquivo), function (err) {
       if (err) throw err;
       console.log('Arquivo gerado !');
     });
@@ -69,7 +69,6 @@ async function retornaTokenArquivo() {
   
   return await token;
 }
-
 
 
 //Transformar data_geracao em Date
