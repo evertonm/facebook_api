@@ -1,21 +1,7 @@
-const bizSdk = require('facebook-nodejs-business-sdk');
 const moment = require('moment');
 const fs = require('fs');
 const {format} = require('date-fns');
 const axios = require('axios');
-//Criar logica para obter token de longa duração a cada 30 dias
-/*
-URL:
-  https://graph.facebook.com/v11.0/oauth/access_token?grant_type=fb_exchange_token&client_id=154090190123813&client_secret=b3bff8a6de920ab13982ad66382958ff&fb_exchange_token=EAACMJOsLsyUBAMT0nVzzTqzhyqVv605SGDLizpELNIIce9w5ktfF5oZAfMVLGXeoed4GZASfWaFbSFESeNeKBExuwhiZC0lbMrbe0XBZBsxBUA5ZCIM3XMpb8LSw5R3TGBHuNzDHwW9gT4CU0OtdMVuaR1Dtogbse14dIqQqN5l0Xt9X8YTX8jPwA4FnVZBJlc3o1YMiudZARwMKEWEh2wB
-*/
-
-//Criar automação para armazenar dia após dia desde 2021-07-01
-//Verificar se tem campo, se não tiver no retorno, inserir no objeto como nulo
-//Definir estados e ids ([id, description])
-
-//variar token
-
-/* Lê o arquivo e separa as variaveis de data e access token */
 
 function retornaDataAtualizada(data_arquivo) {
   const data = new Date(data_arquivo);
@@ -26,11 +12,15 @@ function retornaDataAtualizada(data_arquivo) {
 
 async function retornaNovoTokenAPI(token, client_id, client_secret) {
   const url = `https://graph.facebook.com/v11.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${client_id}&client_secret=${client_secret}&fb_exchange_token=${token}`;
-
-  const response = await axios.get(url);
-  const {access_token} = response.data
-
-  return access_token;
+  try {
+    const response = await axios.get(url);
+    const {access_token} = response.data
+  
+    return access_token;
+  } catch(err) {
+    console.log(err);
+  }
+  
 }
 
 async function retornaTokenArquivo(client) {
@@ -40,14 +30,27 @@ async function retornaTokenArquivo(client) {
   
   });
 
-  const {act_id, id_pagina, client_id, client_secret, data_geracao, access_token} = JSON.parse(dados_arquivo);
+  let {act_id, id_pagina, client_id, client_secret, data_geracao, access_token, page_token} = JSON.parse(dados_arquivo);
+
   const data_arquivo_atualizada = retornaDataAtualizada(data_geracao); 
   const dia_atual = new Date();
-  let token = null;
+  let responseClient = null;
 
-  if (data_arquivo_atualizada.valueOf() <= dia_atual.valueOf()) {
+  if (data_arquivo_atualizada.valueOf() <= dia_atual.valueOf() || !page_token) {
     
-    token = await retornaNovoTokenAPI(access_token, client_id, client_secret);
+    const token = await retornaNovoTokenAPI(access_token, client_id, client_secret);
+    
+    if(!page_token) {
+      try {
+        page_token = await axios.get(
+          `https://graph.facebook.com/${id_pagina}?fields=access_token&access_token=${access_token}`
+        );
+
+
+      } catch(err) {
+        console.log(err);
+      }
+    }
     const dia_atual_formatado = format(dia_atual, 'yyyy-MM-dd')
     const novo_arquivo = {
       client: client,
@@ -56,36 +59,98 @@ async function retornaTokenArquivo(client) {
       client_id,
       client_secret: client_secret,
       data_geracao: dia_atual_formatado,
-      access_token: token
+      access_token: token,
+      page_token: page_token.data.access_token 
     }
+    
+    responseClient = novo_arquivo;
     
     fs.writeFile(`./${client}_token.json`, JSON.stringify(novo_arquivo), function (err) {
       if (err) throw err;
       console.log('Arquivo gerado !');
     });
   } else {
-    token = access_token;
+    responseClient = {act_id, id_pagina, client_id, client_secret, data_geracao, access_token, page_token};
   }
   
-  return await token;
+  return await responseClient;
 }
 
+const clientsName = [
+  'nomura',
+  'arezzo',
+  'schutz'
+]
 
-//Transformar data_geracao em Date
-//verificar se a data_geracao + 1 mes é maior q o dia atual
-//Se sim, buscar o token, se nao usar o access_token
+clientsName.forEach((clientName) => {
+  retornaTokenArquivo(clientName).then((response) => {
+    const clientInfo = response;
+    writeFileInfoPage(clientName, clientInfo)
+    writeFile(clientName, clientInfo);
+  });  
+});
+ 
 
-// //Sample usage momentjs
-const date = moment().format();
-console.log(date);
+async function writeFileInfoPage(client, clientInfo) {
+  const path = `${client}_info_page.json`;
+  let dataToInsert;
 
-writeFile('nomura');
+  fs.access(path, fs.F_OK, async (err) => {
+    if(err) { //Arquivo não existe
+      dataToInsert = [];
+    } else {
+      const fileData = JSON.parse(fs.readFileSync(path));
+      dataToInsert = fileData;
+    }
+
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      today.setMinutes(0);
+      today.setSeconds(0);
+      const monthFormatted = today.getMonth() + 1 < 9 ? `0${today.getMonth() + 1}` : today.getMonth() + 1;
+      const dayFormatted = today.getDate() < 10 ? `0${today.getDate()}` : today.getDate();
+      const objectToJson = {
+        generated_date: `${today.getFullYear()}-${monthFormatted}-${dayFormatted}`,
+        pageViewTotal: {},
+        pagePostEngagement: {}
+      };
+      const responsePageViewTotal = await axios.get(
+        `https://graph.facebook.com/v11.0/${clientInfo.id_pagina}/insights/page_views_total`,
+        { headers: {"Authorization" : `Bearer ${clientInfo.page_token}`} }
+      );
+  
+      const pageViewTotal = responsePageViewTotal.data.data;
+      objectToJson.pageViewTotal = pageViewTotal;
 
 
-function writeFile(client) {
+      const responsePagePostEngagement = await axios.get(
+        `https://graph.facebook.com/v11.0/${clientInfo.id_pagina}/insights/page_post_engagements`,
+        { headers: {"Authorization" : `Bearer ${clientInfo.page_token}`} }
+      );
+
+      const pagePostEngagement = responsePagePostEngagement.data.data;
+      objectToJson.pagePostEngagement = pagePostEngagement;
+      
+      dataToInsert = dataToInsert.concat(objectToJson);
+      fs.writeFile(path, JSON.stringify(dataToInsert), function (err) {
+        if (err) throw err;
+        console.log('Arquivo de informações da página criado com sucesso!');
+      });
+
+    } catch(err) {
+      console.log(err);
+    }
+
+    //https://graph.facebook.com/v11.0/1475560419377632/insights/page_views_total
+  });
+
+} 
+
+function writeFile(client, clientInfo) {
 
   const path = `${client}.json`;
-  let dateStart = '2021-06-30';
+  let dateStart = '2021-07-01';
   let dataToInsert;
   fs.access(path, fs.F_OK, (err) => {
     if (err) { //Arquivo não existe
@@ -112,55 +177,111 @@ function writeFile(client) {
     today.setSeconds(0);
 
     if (date < today) {
-      getInfoAPI(path, date, today, dataToInsert, client);
+      getInfoAPI(path, date, today, dataToInsert, client, clientInfo);
     } else {
       console.log('Isso é tudo por hoje (:')
     }
   })
 }
 
-async function getInfoAPI(path, date, today, insertData, client) {
-  //Variar por cliente/tempo
-  let access_token = 'EAACMJOsLsyUBAFZCsWZBuFCEaV1jaulsNcCNT4Es5ts1mYqtLz25V7B1dHgQJnh8rlYeeDyDS4jxeQst42z6fJTkEMZATzUpD2J1e9YLndSDz4GU69g9TYNSw7Ix5RUwzfgkecDQSUOqejnE9PqGcgyoxijgQ3M92QTACrULQZDZD';
-  let ad_account_id = 'act_1975449945940491';//Variar por cliente
-  const fields =
-    `campaign_id,account_id,account_name,account_currency,inline_link_clicks,impressions,clicks,spend,cpm,
-  frequency,cpp,ctr,reach,cost_per_conversion,actions,action_values,location`;
+async function getInfoAPI(path, date, today, insertData, client, clientInfo) {
 
-  const monthFormatted = date.getMonth() + 1 < 9 ? `0${date.getMonth() + 1}` : date.getMonth() + 1;
-  const dayFormatted = date.getDate() < 10 ? `0${date.getDate()}` : date.getDate();
-  console.log('Gerando da data:')
-  console.log(`${date.getFullYear()}-${monthFormatted}-${dayFormatted}`)
-  const breakdowns = 'region';
-  const time_range = JSON.stringify
-    ({
-      'since': `${date.getFullYear()}-${monthFormatted}-${dayFormatted}`,
-      'until': `${date.getFullYear()}-${monthFormatted}-${dayFormatted}`
-    });
   try {
-    const res = await axios.get(
-      `https://graph.facebook.com/v11.0/${ad_account_id}/insights?
-      fields=${fields}
-      &breakdowns=${breakdowns}
-      &time_range=${time_range}
-      &access_token=${access_token}`
+    let access_token = clientInfo.access_token;
+    let ad_account_id = clientInfo.act_id;
+
+    const campaigns = await axios.get(
+      `https://graph.facebook.com/v11.0/${ad_account_id}/campaigns?limit=1000000&fields=name,level&access_token=${access_token}`
     );
 
-    insertData = insertData.concat(res.data.data);
+    const fields =
+      `purchase_roas,website_ctr,campaign_id,campaign_name,video_thruplay_watched_actions,account_id,account_name,cost_per_thruplay,account_currency,conversions,inline_link_clicks,video_p50_watched_actions,impressions,video_p75_watched_actions,video_p95_watched_actions,clicks,website_purchase_roas,spend,cpm, frequency,cpp,ctr,reach,cost_per_conversion,actions,action_values,location, video_avg_time_watched_actions`;
+
+    const monthFormatted = date.getMonth() + 1 < 9 ? `0${date.getMonth() + 1}` : date.getMonth() + 1;
+    const dayFormatted = date.getDate() < 10 ? `0${date.getDate()}` : date.getDate();
+    console.log(`Obtendo informações do cliente ${client}, na data: ${date.getFullYear()}-${monthFormatted}-${dayFormatted}`)
+
+    const time_range = JSON.stringify
+      ({
+        'since': `${date.getFullYear()}-${monthFormatted}-${dayFormatted}`,
+        'until': `${date.getFullYear()}-${monthFormatted}-${dayFormatted}`
+      });
+
+    const campaignsPromises = [];
+    campaigns.data.data.forEach((campaign) => {
+      console.log(campaign)
+      const url = `https://graph.facebook.com/v11.0/${campaign.id}/insights?fields=${fields}&time_range=${time_range}&access_token=${access_token}`;
+      campaignsPromises.push(axios.get(
+        url
+      ));
+    });
+
+
+    const responseCampaigns = await Promise.all(campaignsPromises);
+    const campaignsToJson = [];
+    responseCampaigns.forEach((responseCampaign) => {
+
+      if (responseCampaign.data.data.length > 0) {
+
+        const campaign = responseCampaign.data.data[0];
+
+        //Facilitar processo de ETL, deixar propriedades com nome único 
+        if(campaign.actions) {
+
+          campaign.actions.forEach((action, index) => {
+            if(campaign.action_values) {
+              campaign.action_values.forEach((action_value) => {
+                
+                // Deixar valor e quantidade no mesmo objeto
+                if(action_value.action_type === action.action_type) {
+                  action[`value_${index + 1}`] = action_value.value;
+                }
+              })
+            }
+            action[`action_type_${index + 1}`] = action.action_type;
+            action[`quantity_${index + 1}`] = action.value;
+            delete action['action_type'];
+            delete action['value'];
+          });
+  
+          delete campaign['action_values'];
+        }
+
+        campaign.originalName = campaign.campaign_name;
+        campaign.campaign_name = campaign.campaign_name.split(/\s/).join('');
+
+        const indexOfBracket = campaign.campaign_name.indexOf(']');
+        const stateInCampaignName = campaign.campaign_name.substring(indexOfBracket - 2, indexOfBracket);
+        estados.forEach((estado) => {
+          if (estado.sgUf === stateInCampaignName) {
+            campaign.state = estado;
+          }
+        })
+        campaignsToJson.push(campaign);
+      }
+    });
+
+    insertData = insertData.concat(campaignsToJson);
 
     fs.writeFile(path, JSON.stringify(insertData), function (err) {
       if (err) throw err;
       if (date < today) {
         date.setDate(date.getDate() + 1);
-        getInfoAPI(path, date, today, insertData, client);
+        getInfoAPI(path, date, today, insertData, client, clientInfo);
       }
     });
 
-    console.log(insertData.length);
   } catch (err) {
     console.log(err);
+    console.log('Oh, noh! Too many requests :( .Trying again in 30 seconds, please wait :)')
+    setTimeout(() => {
+      writeFile(client);
+    }, 30000)
+
   }
 }
+
+
 const estados = [
   {
       "id": 1,
