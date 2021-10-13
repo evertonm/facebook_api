@@ -36,7 +36,7 @@ async function retornaTokenArquivo(client) {
   const dia_atual = new Date();
   let responseClient = null;
 
-  if (data_arquivo_atualizada.valueOf() <= dia_atual.valueOf() || !page_token) {
+  if (data_arquivo_atualizada.valueOf() <= dia_atual.valueOf()) {
     
     const token = await retornaNovoTokenAPI(access_token, client_id, client_secret);
     
@@ -85,7 +85,7 @@ const clientsName = [
 clientsName.forEach((clientName) => {
   retornaTokenArquivo(clientName).then((response) => {
     const clientInfo = response;
-    writeFileInfoPage(clientName, clientInfo)
+    //writeFileInfoPage(clientName, clientInfo)
     writeFile(clientName, clientInfo);
   });  
 });
@@ -210,7 +210,7 @@ async function getInfoAPI(path, date, today, insertData, client, clientInfo) {
     const campaignsPromises = [];
     campaigns.data.data.forEach((campaign) => {
       console.log(campaign)
-      const url = `https://graph.facebook.com/v11.0/${campaign.id}/insights?fields=${fields}&time_range=${time_range}&access_token=${access_token}`;
+      const url = `https://graph.facebook.com/v11.0/${campaign.id}/insights?action_attribution_windows=['1d_click','1d_view']&fields=${fields}&time_range=${time_range}&access_token=${access_token}`;
       campaignsPromises.push(axios.get(
         url
       ));
@@ -235,11 +235,18 @@ async function getInfoAPI(path, date, today, insertData, client, clientInfo) {
                 // Deixar valor e quantidade no mesmo objeto
                 if(action_value.action_type === action.action_type) {
                   action[`value_${index + 1}`] = action_value.value;
+
+                  if(action_value['1d_click']) {
+                    action[`value_${index + 1}`] = action_value['1d_click'];
+                  }
                 }
               })
             }
             action[`action_type_${index + 1}`] = action.action_type;
             action[`quantity_${index + 1}`] = action.value;
+            if(action['1d_click']) {
+              action[`quantity_${index + 1}`] = action['1d_click'];
+            }
             delete action['action_type'];
             delete action['value'];
           });
@@ -272,10 +279,12 @@ async function getInfoAPI(path, date, today, insertData, client, clientInfo) {
     });
 
   } catch (err) {
-    console.log(err);
-    console.log('Oh, noh! Too many requests :( .Trying again in 30 seconds, please wait :)')
+    //console.log(err);
+    const monthFormatted = date.getMonth() + 1 < 9 ? `0${date.getMonth() + 1}` : date.getMonth() + 1;
+    const dayFormatted = date.getDate() < 10 ? `0${date.getDate()}` : date.getDate();
+    console.log(`**************************\nOh, noh! Too many requests :( .Trying again in 30 seconds, please wait :)\n${err}\nInfo Query: \nDate: ${date.getFullYear()}-${monthFormatted}-${dayFormatted}\nClient: ${client}\n**************************`)
     setTimeout(() => {
-      writeFile(client);
+      writeFile(client, clientInfo);
     }, 30000)
 
   }
